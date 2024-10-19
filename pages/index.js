@@ -13,7 +13,6 @@ import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import 'react-toastify/dist/ReactToastify.css'
-import { cn } from '@/lib/utils'
 
 export default function Home() {
   const [workspaces, setWorkspaces] = useState([])
