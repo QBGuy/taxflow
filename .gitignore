@@ -31,3 +31,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# results and vs
+/results/client*
+/vector_stores/client*
+/public/uploads/*
