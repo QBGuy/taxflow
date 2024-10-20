@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import 'react-toastify/dist/ReactToastify.css'
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';  
+import remarkGfm from 'remark-gfm';  // To support GitHub-Flavored Markdown like tables and strikethrough
 
 export default function Home() {
   const [workspaces, setWorkspaces] = useState([])
