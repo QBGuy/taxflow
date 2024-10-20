@@ -1,7 +1,7 @@
 // pages/api/workspaces/[workspace]/files.js
 
-import { listFiles, downloadFileToTemp, uploadFile, appendToDocstore, downloadFile } from '../../../../lib/azureBlob';
-import { processNewFiles } from '../../../../lib/vectorStoreUtils';
+import { listFiles, downloadFileToTemp, uploadFile, appendToDocstore, downloadFile } from '@lib/azureBlob';
+import { processNewFiles } from '@lib/vectorStoreUtils';
 import { AzureOpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';

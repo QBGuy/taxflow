@@ -1,6 +1,6 @@
 // pages/api/workspaces/[workspace]/results.js
 
-import { downloadFile } from '../../../../lib/azureBlob'
+import { downloadFile } from '@lib/azureBlob'
 console.log('------RUNNING: results.js')
 export default async function handler(req, res) {
   const {

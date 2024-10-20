@@ -1,5 +1,5 @@
 // pages/api/workspaces/[workspace]/generate.js
-import { listFiles, downloadFileToTemp, uploadFile, appendToDocstore, downloadFile } from '../../../../lib/azureBlob';
+import { listFiles, downloadFileToTemp, uploadFile, appendToDocstore, downloadFile } from '@lib/azureBlob';
 import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
 import { AzureOpenAIEmbeddings, AzureChatOpenAI } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';

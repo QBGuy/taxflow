@@ -7,7 +7,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { createStuffDocumentsChain } from 'langchain/chains/combine_documents';
 import { createRetrievalChain } from 'langchain/chains/retrieval';
 import prompts from '@/lib/prompts';
-import { downloadFile, uploadFile } from '../../../../lib/azureBlob';
+import { downloadFile, uploadFile } from '@lib/azureBlob';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';

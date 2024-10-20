@@ -1,5 +1,5 @@
 // pages/api/workspaces/index.js
-import { listWorkspaces, checkBlobExists, uploadFile } from '../../../lib/azureBlob';
+import { listWorkspaces, checkBlobExists, uploadFile } from '@/lib/azureBlob';
 import { AzureOpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';

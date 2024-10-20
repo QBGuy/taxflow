@@ -3,8 +3,8 @@
 import { IncomingForm } from 'formidable'
 import formidable from 'formidable';
 import { promises as fsPromises } from 'fs';
-import { processNewFiles } from '../../../../lib/vectorStoreUtils';
-import { uploadFile, downloadFile, appendToDocstore } from '../../../../lib/azureBlob';
+import { processNewFiles } from '@lib/vectorStoreUtils';
+import { uploadFile, downloadFile, appendToDocstore } from '@lib/azureBlob';
 import path from 'path'
 console.log('------RUNNING: upload.js')
 
