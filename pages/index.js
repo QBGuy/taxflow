@@ -13,6 +13,8 @@ import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import 'react-toastify/dist/ReactToastify.css'
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';  
 
 export default function Home() {
   const [workspaces, setWorkspaces] = useState([])
@@ -114,32 +116,53 @@ export default function Home() {
   }, [selectedWorkspace])
 
   const handleWorkspaceSelect = async (workspace) => {
-    setSelectedWorkspace(workspace)
-    toast.success(`Workspace "${workspace}" selected.`)
-  }
+    setSelectedWorkspace(workspace);
+  
+    // Reset relevant state variables when a new workspace is selected
+    setUploadedFiles([]);
+    setAllResults({});
+    setCurrentIterations({});
+    setExtraInstructions('');
+    setSelectedSections([]);
+  
+    toast.success(`Workspace "${workspace}" selected.`);
+  };
 
   const handleCreateWorkspace = async () => {
     if (newWorkspaceName.trim() === '') {
-      toast.error('Workspace name cannot be empty.')
-      return
+      toast.error('Workspace name cannot be empty.');
+      return;
     }
-
+  
     try {
       const response = await axios.post('/api/workspaces', {
         workspace: newWorkspaceName,
-      })
-      setWorkspaces((prev) => [...prev, newWorkspaceName])
-      setSelectedWorkspace(newWorkspaceName)
-      setNewWorkspaceName('')
-      setIsDialogOpen(false)
-      toast.success(`Workspace "${newWorkspaceName}" created.`)
+      });
+      
+      // Add the new workspace to the list
+      setWorkspaces((prev) => [...prev, newWorkspaceName]);
+  
+      // Set the new workspace as the selected workspace
+      setSelectedWorkspace(newWorkspaceName);
+  
+      // Clear relevant state variables
+      setUploadedFiles([]);
+      setAllResults({});
+      setCurrentIterations({});
+      setExtraInstructions('');
+      setSelectedSections([]);
+  
+      // Close the dialog and reset the workspace name input
+      setNewWorkspaceName('');
+      setIsDialogOpen(false);
+  
+      toast.success(`Workspace "${newWorkspaceName}" created.`);
     } catch (error) {
-      console.error('Error creating workspace:', error)
-      toast.error(
-        error.response?.data?.message || 'Failed to create workspace.'
-      )
+      console.error('Error creating workspace:', error);
+      toast.error(error.response?.data?.message || 'Failed to create workspace.');
     }
-  }
+  };
+  
 
   const onDrop = async (acceptedFiles) => {
     if (!selectedWorkspace) {
@@ -304,62 +327,66 @@ export default function Home() {
 
   const handleGenerateModifications = async () => {
     if (!extraInstructions.trim()) {
-      toast.error('Please enter extra instructions.')
-      return
+      toast.error('Please enter extra instructions.');
+      return;
     }
-
-    setIsGenerating(true)
+  
+    setIsGenerating(true);
     try {
       const response = await axios.post(`/api/workspaces/${encodeURIComponent(selectedWorkspace)}/modify`, {
         sections: selectedSections,
         extraInstructions,
-      })
-
-      const modifiedResults = response.data.modifiedResults
-
+      });
+  
+      const modifiedResults = response.data.modifiedResults;
+  
       const modifiedResultsBySection = modifiedResults.reduce((acc, result) => {
         if (!acc[result.section]) {
-          acc[result.section] = []
+          acc[result.section] = [];
         }
-        acc[result.section].push(result)
-        return acc
-      }, {})
-
-      const updatedAllResults = { ...allResults }
-      const sectionsToHighlight = []
-
+        acc[result.section].push(result);
+        return acc;
+      }, {});
+  
+      const updatedAllResults = { ...allResults };
+      const sectionsToHighlight = [];
+  
       Object.keys(modifiedResultsBySection).forEach(section => {
         if (!updatedAllResults[section]) {
-          updatedAllResults[section] = []
+          updatedAllResults[section] = [];
         }
-        updatedAllResults[section] = [...updatedAllResults[section], ...modifiedResultsBySection[section]]
-        sectionsToHighlight.push(section)
-      })
-      setAllResults(updatedAllResults)
-
-      const updatedIterations = { ...currentIterations }
+        updatedAllResults[section] = [...updatedAllResults[section], ...modifiedResultsBySection[section]];
+        sectionsToHighlight.push(section);
+      });
+      setAllResults(updatedAllResults);
+  
+      const updatedIterations = { ...currentIterations };
       Object.keys(modifiedResultsBySection).forEach(section => {
-        const latestIteration = Math.max(...modifiedResultsBySection[section].map(r => r.iteration_number))
-        updatedIterations[section] = latestIteration
-      })
-      setCurrentIterations(updatedIterations)
-
+        const latestIteration = Math.max(...modifiedResultsBySection[section].map(r => r.iteration_number));
+        updatedIterations[section] = latestIteration;
+      });
+      setCurrentIterations(updatedIterations);
+  
       // Highlight updated sections
-      setHighlightedSections(sectionsToHighlight)
+      setHighlightedSections(sectionsToHighlight);
       setTimeout(() => {
-        setHighlightedSections([])
-      }, 1000) // Highlight duration: 1 second
-
-      toast.success('Modifications generated successfully.')
-      setIsModifyPopoverOpen(false)
-      setExtraInstructions('')
+        setHighlightedSections([]);
+      }, 1000); // Highlight duration: 1 second
+  
+      // Clear selected containers after modifications are generated
+      setSelectedSections([]);
+  
+      toast.success('Modifications generated successfully.');
+      setIsModifyPopoverOpen(false);
+      setExtraInstructions('');
     } catch (error) {
-      console.error('Error generating modifications:', error)
-      toast.error('Failed to generate modifications.')
+      console.error('Error generating modifications:', error);
+      toast.error('Failed to generate modifications.');
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
+  
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text)
@@ -393,214 +420,215 @@ export default function Home() {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Side Pane */}
-      <div className="w-64 bg-white shadow-md flex flex-col">
-        <div className="p-4 border-b">
-          <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
-        </div>
-        <div className="p-4 flex-1 overflow-y-auto">
-          <Select onValueChange={handleWorkspaceSelect} disabled={isGenerating}>
-            <SelectTrigger className="w-full mb-4">
-              {selectedWorkspace ? (
-                <span>{selectedWorkspace}</span>
-              ) : (
-                <span>Select a Workspace</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {isLoadingWorkspaces ? (
-                <SelectItem disabled>Loading...</SelectItem>
-              ) : workspaces.length === 0 ? (
-                <SelectItem disabled>No workspaces found</SelectItem>
-              ) : (
-                workspaces.map((workspace, index) => (
-                  <SelectItem key={index} value={workspace}>
-                    {workspace}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button 
-            variant="outline" 
-            className="w-full mb-4" 
-            onClick={() => setIsDialogOpen(true)}
-            disabled={isGenerating}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" /> New Workspace
-          </Button>
-          <div className="mb-4">
-            <div 
-              {...getRootProps()} 
-              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors ${
-                isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <UploadIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">Drag & drop files here, or click to select files</p>
-            </div>
-            {isUploading && <Progress className="mt-4" />}
-            {uploadedFiles.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center text-sm text-gray-600">
-                    {getFileTypeIcon(file)}
-                    <span className="ml-2">{file}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <Button 
-            onClick={handleGenerate} 
-            className="w-full mb-2" 
-            disabled={isGenerating || uploadedFiles.length === 0}
-          >
-            {isGenerating ? 'Generating...' : 'Generate'}
-          </Button>
-          <Popover open={isModifyPopoverOpen} onOpenChange={setIsModifyPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button 
-                className="w-full" 
-                disabled={isGenerating || selectedSections.length === 0}
-              >
-                Modify
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 max-w-xs">
-              <div className="space-y-4">
-                <h4 className="font-medium">Modify Selected Sections</h4>
-                <Input
-                  as="textarea"
-                  rows={4}
-                  placeholder="Enter additional instructions..."
-                  value={extraInstructions}
-                  onChange={(e) => setExtraInstructions(e.target.value)}
-                  className="w-full"
-                />
-                <Button 
-                  onClick={handleGenerateModifications} 
-                  className="w-full" 
-                  disabled={isGenerating}
-                >
-                  {isGenerating ? 'Generating...' : 'Generate Modifications'}
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
+    {/* Side Pane */}
+    <div className="w-64 bg-white shadow-md flex flex-col">
+      <div className="p-4 border-b">
+        <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
       </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <header className="bg-white shadow-sm p-4">
-          <h1 className="text-2xl font-semibold text-gray-800">Responses</h1>
-        </header>
-        <main className="flex-1 overflow-y-auto p-6">
-          {/* Generated Results */}
-          <section>
-            {/* <h2 className="text-xl font-semibold mb-4 text-gray-700">Generated Responses</h2> */}
-            {Object.keys(allResults).length === 0 ? (
-              <p className="text-gray-500">No responses generated yet.</p>
+      <div className="p-4 flex-1 overflow-y-auto">
+        <Select onValueChange={handleWorkspaceSelect} disabled={isGenerating || isUploading || isProcessing}>
+          <SelectTrigger className="w-full mb-4">
+            {selectedWorkspace ? (
+              <span>{selectedWorkspace}</span>
             ) : (
-              <div className="space-y-4">
-                {Object.keys(allResults).map((section) => {
-                  const iterations = allResults[section]
-                  const currentIteration = currentIterations[section] || 1
-                  const currentResult = iterations.find(r => r.iteration_number === currentIteration)
-                  const isSelected = selectedSections.includes(section)
-                  const isHighlighted = highlightedSections.includes(section)
-
-                  return (
-                    <Card 
-                      key={section} 
-                      className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${
-                        isSelected ? 'bg-gray-200 border-gray-300' : ''
-                      } ${isHighlighted ? 'animate-pulse bg-green-50 border-green-200' : ''}`}
-                      onClick={() => toggleSection(section)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-semibold text-gray-800">{currentResult.question}</h3>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleIterationChange(section, -1)
-                            }}
-                            disabled={currentIteration === 1}
-                            size="sm"
-                            variant="ghost"
-                          >
-                            <ChevronLeftIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleIterationChange(section, 1)
-                            }}
-                            disabled={currentIteration === iterations.length}
-                            size="sm"
-                            variant="ghost"
-                          >
-                            <ChevronRightIcon className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="ghost" 
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCopy(currentResult.answer)
-                            }}
-                          >
-                            <CopyIcon className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="bg-white p-3 rounded-md border mt-2">
-                        <p className="text-gray-700">{currentResult.answer}</p>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-2">Iteration: {currentIteration}</p>
-                    </Card>
-
-
-                  )
-                })}
-              </div>
+              <span>Select a Workspace</span>
             )}
-          </section>
-        </main>
+          </SelectTrigger>
+          <SelectContent>
+            {isLoadingWorkspaces ? (
+              <SelectItem disabled>Loading...</SelectItem>
+            ) : workspaces.length === 0 ? (
+              <SelectItem disabled>No workspaces found</SelectItem>
+            ) : (
+              workspaces.map((workspace, index) => (
+                <SelectItem key={index} value={workspace}>
+                  {workspace}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        <Button 
+          variant="outline" 
+          className="w-full mb-4" 
+          onClick={() => setIsDialogOpen(true)}
+          disabled={isGenerating || isUploading || isProcessing}
+        >
+          <PlusIcon className="mr-2 h-4 w-4" /> New Workspace
+        </Button>
+        <div className="mb-4">
+          <div 
+            {...getRootProps()} 
+            className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors ${
+              isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+            }`}
+          >
+            <input {...getInputProps()} />
+            <UploadIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+            <p className="text-sm text-gray-600">Drag & drop files here, or click to select files</p>
+          </div>
+          {isUploading && <Progress className="mt-4" />}
+          {uploadedFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="flex items-center text-sm text-gray-600">
+                  {getFileTypeIcon(file)}
+                  <span className="ml-2">{file}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <Button 
+          onClick={handleGenerate} 
+          className="w-full mb-2" 
+          disabled={isGenerating || isUploading || isProcessing || uploadedFiles.length === 0}
+        >
+          {isGenerating ? 'Generating...' : 'Generate'}
+        </Button>
+        <Popover open={isModifyPopoverOpen} onOpenChange={setIsModifyPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button 
+              className="w-full" 
+              disabled={isGenerating || isUploading || isProcessing || selectedSections.length === 0}
+            >
+              Modify
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 max-w-xs">
+            <div className="space-y-4">
+              <h4 className="font-medium">Modify Selected Sections</h4>
+              <Input
+                as="textarea"
+                rows={4}
+                placeholder="Enter additional instructions..."
+                value={extraInstructions}
+                onChange={(e) => setExtraInstructions(e.target.value)}
+                className="w-full"
+              />
+              <Button 
+                onClick={handleGenerateModifications} 
+                className="w-full" 
+                disabled={isGenerating || isUploading || isProcessing}
+              >
+                {isGenerating ? 'Generating...' : 'Generate Modifications'}
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {/* Dialogs */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Workspace</DialogTitle>
-            <DialogDescription>
-              Enter a name for the new workspace.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4">
-            <Input
-              placeholder="Workspace Name"
-              value={newWorkspaceName}
-              onChange={(e) => setNewWorkspaceName(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <div className="mt-6 flex justify-end space-x-4">
-            <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateWorkspace} disabled={isGenerating}>
-              Create
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <ToastContainer />
     </div>
+
+    {/* Main Content */}
+    <div className="flex-1 overflow-hidden flex flex-col">
+      <header className="bg-white shadow-sm p-4">
+        <h1 className="text-2xl font-semibold text-gray-800">Responses</h1>
+      </header>
+      <main className="flex-1 overflow-y-auto p-6">
+        {/* Generated Results */}
+        <section>
+          {Object.keys(allResults).length === 0 ? (
+            <p className="text-gray-500">No responses generated yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.keys(allResults).map((section) => {
+                const iterations = allResults[section]
+                const currentIteration = currentIterations[section] || 1
+                const currentResult = iterations.find(r => r.iteration_number === currentIteration)
+                const isSelected = selectedSections.includes(section)
+                const isHighlighted = highlightedSections.includes(section)
+
+                return (
+                  <Card 
+                    key={section} 
+                    className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${
+                      isSelected ? 'bg-gray-200 border-gray-300' : ''
+                    } ${isHighlighted ? 'animate-pulse bg-green-50 border-green-200' : ''}`}
+                    onClick={() => toggleSection(section)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-semibold text-gray-800">{currentResult.question}</h3>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleIterationChange(section, -1)
+                          }}
+                          disabled={currentIteration === 1 || isGenerating || isUploading || isProcessing}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <ChevronLeftIcon className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleIterationChange(section, 1)
+                          }}
+                          disabled={currentIteration === iterations.length || isGenerating || isUploading || isProcessing}
+                          size="sm"
+                          variant="ghost"
+                        >
+                          <ChevronRightIcon className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCopy(currentResult.answer)
+                          }}
+                          disabled={isGenerating || isUploading || isProcessing}
+                        >
+                          <CopyIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="bg-white p-3 rounded-md border mt-2">
+                      {/* Render markdown content here */}
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {currentResult.answer}
+                      </ReactMarkdown>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-2">Iteration: {currentIteration}</p>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
+
+    {/* Dialogs */}
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Workspace</DialogTitle>
+          <DialogDescription>
+            Enter a name for the new workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="mt-4">
+          <Input
+            placeholder="Workspace Name"
+            value={newWorkspaceName}
+            onChange={(e) => setNewWorkspaceName(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="mt-6 flex justify-end space-x-4">
+          <Button variant="ghost" onClick={() => setIsDialogOpen(false)} disabled={isGenerating || isUploading || isProcessing}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateWorkspace} disabled={isGenerating || isUploading || isProcessing}>
+            Create
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+
+    <ToastContainer />
+  </div>
   )
 }

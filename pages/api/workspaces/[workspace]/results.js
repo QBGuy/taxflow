@@ -1,11 +1,7 @@
 // pages/api/workspaces/[workspace]/results.js
 
-const fs = require('fs')
-const path = require('path')
-
-// Define directories
-const RESULTS_DIR = path.resolve(process.cwd(), 'results')
-
+import { downloadFile } from '../../../../lib/azureBlob'
+console.log('------RUNNING: results.js')
 export default async function handler(req, res) {
   const {
     query: { workspace },
@@ -17,18 +13,15 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${method} Not Allowed`)
   }
 
-  const resultsPath = path.join(RESULTS_DIR, workspace, 'results.json')
-
-  if (!fs.existsSync(resultsPath)) {
-    return res.status(404).json({ message: 'No results found for this workspace.' })
-  }
-
   try {
-    const rawData = fs.readFileSync(resultsPath, 'utf-8')
-    const results = JSON.parse(rawData)
+    const resultsContent = await downloadFile(workspace, 'results', 'results.json', false)
+    const results = JSON.parse(resultsContent)
     res.status(200).json({ results })
   } catch (error) {
-    console.error('Error reading results.json:', error)
+    if (error.code === 'BlobNotFound' || error.statusCode === 404) {
+      return res.status(404).json({ message: 'No results found for this workspace.' })
+    }
+    console.error('Error reading results.json:')
     res.status(500).json({ message: 'Error reading results.' })
   }
 }

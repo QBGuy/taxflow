@@ -1,14 +1,22 @@
 // pages/api/workspaces/[workspace]/files.js
 
-import fs from 'fs';
-import path from 'path';
-import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
+import { listFiles, downloadFileToTemp, uploadFile, appendToDocstore, downloadFile } from '../../../../lib/azureBlob';
+import { processNewFiles } from '../../../../lib/vectorStoreUtils';
 import { AzureOpenAIEmbeddings } from '@langchain/openai';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
+import { HNSWLib } from '@langchain/community/vectorstores/hnswlib';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
 
-const VECTOR_STORE_DIR = path.resolve(process.cwd(), 'vector_stores');
-const UPLOAD_DIR = path.resolve(process.cwd(), 'public', 'uploads');
+console.log('------RUNNING: files.js')
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req, res) {
   const {
@@ -21,151 +29,107 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${method} Not Allowed`);
   }
 
-  const workspaceUploadDir = path.join(UPLOAD_DIR, workspace);
+  try {
+    const uploadedFiles = await listFiles(workspace, 'uploads');
+    console.log(`Uploaded files for workspace "${workspace}":`, uploadedFiles);
 
-  if (!fs.existsSync(workspaceUploadDir)) {
-    return res.status(400).json({ message: 'Workspace does not exist or no files uploaded.' });
-  }
-
-  const workspacePath = path.join(VECTOR_STORE_DIR, workspace);
-  const vectorStorePath = workspacePath;
-
-  let vectorStore;
-  if (fs.existsSync(path.join(vectorStorePath, 'hnswlib.index'))) {
-    console.log(`Loading existing vector store for workspace: ${workspace}`);
+    let docstore = [];
     try {
-      vectorStore = await HNSWLib.load(vectorStorePath, new AzureOpenAIEmbeddings({
-        azureOpenAIApiKey: process.env.AZURE_OPENAI_KEY,
-        azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-        azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT_NAME,
-        azureOpenAIApiVersion: process.env.AZURE_OPENAI_VERSION || "2024-05-01-preview",
-      }));
+      const docstoreContent = await downloadFile(workspace, 'vector_store', 'docstore.json', false);
+      docstore = JSON.parse(docstoreContent);
+      // console.log(`Loaded docstore for workspace "${workspace}":`, docstore);
     } catch (error) {
-      console.error(`Error loading vector store for workspace ${workspace}:`, error);
-      return res.status(500).json({ message: 'Error loading vector store.' });
+      if (error.code === 'BlobNotFound' || error.statusCode === 404) {
+        console.log(`No docstore.json found for workspace "${workspace}". Initializing a new one.`);
+        docstore = [];
+      } else {
+        throw error;
+      }
     }
-  } else {
-    console.log(`Initializing new vector store for workspace: ${workspace}`);
-    try {
-      const initialDocs = [{
-        pageContent: workspace,
-        metadata: {},
-      }];
-      const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200,
-      });
-      const splitDocs = await textSplitter.splitDocuments(initialDocs);
-      vectorStore = await HNSWLib.fromDocuments(splitDocs, new AzureOpenAIEmbeddings({
-        azureOpenAIApiKey: process.env.AZURE_OPENAI_KEY,
-        azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-        azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT_NAME,
-        azureOpenAIApiVersion: process.env.AZURE_OPENAI_VERSION || "2024-05-01-preview",
-      }));
-      await vectorStore.save(vectorStorePath);
-      console.log(`Vector store initialized for workspace: ${workspace}`);
-    } catch (error) {
-      console.error(`Error initializing vector store for workspace ${workspace}:`, error);
-      return res.status(500).json({ message: 'Error initializing vector store.' });
-    }
-  }
+    
+    const processedFilesSet = new Set();
+    console.log("Checking processed files")
+    docstore.forEach((docEntry) => {
+      
+      if (docEntry[1] && docEntry[1].metadata && docEntry[1].metadata.originalFileName) {
+        // console.log(`Source for document ${docEntry[0]}:`, docEntry[1].metadata.originalFileName);
+        const fileName = docEntry[1].metadata.originalFileName;
+        processedFilesSet.add(fileName);
+      }
+    })
+    
+    ;
 
-  // Read docstore.json to check loaded files
-  const docstorePath = path.join(vectorStorePath, 'docstore.json');
-  let processedFilesSet = new Set();
+    console.log(`Processed files set for workspace "${workspace}":`, Array.from(processedFilesSet));
+    const filesToProcess = uploadedFiles.filter(file => !processedFilesSet.has(file));
+    console.log(`Files to process for workspace "${workspace}":`, filesToProcess);
 
-  if (fs.existsSync(docstorePath)) {
-    const raw = fs.readFileSync(docstorePath, 'utf-8');
-    try {
-      const docstore = JSON.parse(raw);
-      console.log(`Loaded docstore for workspace ${workspace}:`, Object.keys(docstore));
+    const skippedFiles = [];
+    const processedFiles = [];
+    const processDocuments = [];
 
-      // Extract unique file names from metadata.source
-      docstore.forEach((docEntry) => {
-        const [docNumber, doc] = docEntry;
-        if (doc.metadata && doc.metadata.source) {
-          const sourcePath = doc.metadata.source;
-          const fileName = path.basename(sourcePath);
-          processedFilesSet.add(fileName);
+    for (const file of filesToProcess) {
+      const ext = path.extname(file).toLowerCase();
+      console.log(`Processing file: ${file}`);
+
+      if (!['.pdf', '.docx', '.doc', '.txt'].includes(ext)) {
+        console.log(`Unsupported file type: ${file}`);
+        skippedFiles.push(file);
+        continue;
+      }
+
+      try {
+        const tempFilePath = await downloadFileToTemp(workspace, 'uploads', file);
+        let loader;
+        if (ext === '.pdf') {
+          loader = new PDFLoader(tempFilePath);
+        } else {
+          console.log(`Unsupported file type for processing: ${file}`);
+          skippedFiles.push(file);
+          fs.unlinkSync(tempFilePath);
+          continue;
         }
-      });
-      console.log(`Processed files set for workspace ${workspace}:`, Array.from(processedFilesSet));
-    } catch (error) {
-      console.error(`Error parsing docstore.json for workspace ${workspace}:`, error);
-      return res.status(500).json({ message: 'Error parsing docstore.' });
+
+        console.log(`Loading document: ${file}`);
+        const documents = await loader.load();
+
+        const textSplitter = new RecursiveCharacterTextSplitter({
+          chunkSize: 1000,
+          chunkOverlap: 200,
+        });
+
+        const splitDocs = await textSplitter.splitDocuments(documents);
+
+        const newDocuments = splitDocs.map(doc => ({
+          pageContent: doc.pageContent,
+          metadata: {
+            source: `https://${process.env.AZURE_STORAGE_ACCOUNT_NAME}.blob.core.windows.net/${process.env.AZURE_STORAGE_CONTAINER_NAME}/${workspace}/uploads/${file}`,
+          },
+        }));
+
+        await appendToDocstore(workspace, newDocuments);
+
+        const fileContent = fs.readFileSync(tempFilePath);
+        processDocuments.push({
+          fileName: file,
+          fileContent: fileContent,
+        });
+
+        processedFiles.push(file);
+        fs.unlinkSync(tempFilePath);
+      } catch (error) {
+        console.error(`Error processing file "${file}":`, error);
+        skippedFiles.push(file);
+      }
     }
-  } else {
-    console.log(`No docstore found for workspace ${workspace}.`);
+
+    if (processDocuments.length > 0) {
+      await processNewFiles(workspace, processDocuments);
+    }
+
+    res.status(200).json({ files: uploadedFiles, processedFiles, skippedFiles });
+  } catch (error) {
+    console.error(`Error handling GET /api/workspaces/${workspace}/files:`, error);
+    res.status(500).json({ message: 'Error retrieving workspace files.' });
   }
-
-  // List all uploaded files
-  const uploadedFiles = fs.readdirSync(workspaceUploadDir).filter(file => {
-    const ext = path.extname(file).toLowerCase();
-    return ['.pdf', '.doc', '.docx'].includes(ext);
-  });
-
-  console.log(`Uploaded files for workspace ${workspace}:`, uploadedFiles);
-
-  // Determine which files need to be processed (not in processedFilesSet)
-  const filesToProcess = uploadedFiles.filter(file => !processedFilesSet.has(file));
-
-  console.log(`Files to process for workspace ${workspace}:`, filesToProcess);
-
-  const skippedFiles = [];
-  const processedFiles = [];
-
-  for (const file of filesToProcess) {
-    const filePath = path.join(workspaceUploadDir, file);
-    const ext = path.extname(file).toLowerCase();
-
-    console.log(`Processing file: ${file}`);
-
-    if (!['.pdf', '.doc', '.docx'].includes(ext)) {
-      console.log(`Unsupported file type: ${file}`);
-      skippedFiles.push(file);
-      continue;
-    }
-
-    let loader;
-    if (ext === '.pdf') {
-      loader = new PDFLoader(filePath);
-    } else {
-      console.log(`Unsupported file type for processing: ${file}`);
-      skippedFiles.push(file);
-      continue;
-    }
-
-    try {
-      console.log(`Loading document: ${file}`);
-      const documents = await loader.load();
-
-      const textSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200,
-      });
-
-      const splitDocs = await textSplitter.splitDocuments(documents);
-
-      console.log(`Adding documents from: ${file}`);
-      await vectorStore.addDocuments(splitDocs);
-
-      processedFiles.push(file);
-      console.log(`Processed file: ${file}`);
-    } catch (error) {
-      console.error(`Error processing file ${file}:`, error);
-      skippedFiles.push(file);
-    }
-  }
-
-  if (processedFiles.length > 0) {
-    try {
-      await vectorStore.save(vectorStorePath);
-      console.log(`Vector store updated for workspace: ${workspace}`);
-    } catch (error) {
-      console.error(`Error saving vector store for workspace ${workspace}:`, error);
-      return res.status(500).json({ message: 'Error saving vector store.' });
-    }
-  }
-
-  res.status(200).json({ files: uploadedFiles, processedFiles, skippedFiles });
 }
