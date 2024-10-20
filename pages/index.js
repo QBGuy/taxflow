@@ -33,6 +33,7 @@ export default function Home() {
   const [isModifyPopoverOpen, setIsModifyPopoverOpen] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [highlightedSections, setHighlightedSections] = useState([])
+  const [isExporting, setIsExporting] = useState(false)
 
   useEffect(() => {
     const fetchWorkspaces = async () => {
@@ -386,6 +387,34 @@ export default function Home() {
       setIsGenerating(false);
     }
   };
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch(`/api/workspaces/${selectedWorkspace}/export`, {
+        method: 'GET',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to export results.');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(new Blob([blob], { type: 'text/html' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `pd-${selectedWorkspace}.html`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`Export failed: ${error.message}`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
   
 
   const handleCopy = (text) => {
@@ -479,43 +508,55 @@ export default function Home() {
             </div>
           )}
         </div>
-        <Button 
-          onClick={handleGenerate} 
-          className="w-full mb-2" 
-          disabled={isGenerating || isUploading || isProcessing || uploadedFiles.length === 0}
-        >
-          {isGenerating ? 'Generating...' : 'Generate'}
-        </Button>
-        <Popover open={isModifyPopoverOpen} onOpenChange={setIsModifyPopoverOpen}>
-          <PopoverTrigger asChild>
+        {/* Generate Button */}
+      <Button 
+        onClick={handleGenerate} 
+        className="w-full mb-2" 
+        disabled={isGenerating || isUploading || isProcessing || uploadedFiles.length === 0 || isExporting}
+      >
+        {isGenerating ? 'Generating...' : 'Generate'}
+      </Button>
+
+      {/* Modify Button with Popover */}
+      <Popover open={isModifyPopoverOpen} onOpenChange={setIsModifyPopoverOpen}>
+        <PopoverTrigger asChild>
+          <Button 
+            className="w-full mb-2" 
+            disabled={isGenerating || isUploading || isProcessing || selectedSections.length === 0 || isExporting}
+          >
+            Modify
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 max-w-xs p-4">
+          <div className="space-y-4">
+            <h4 className="font-medium">Modify Selected Sections</h4>
+            <Input
+              as="textarea"
+              rows={4}
+              placeholder="Enter additional instructions..."
+              value={extraInstructions}
+              onChange={(e) => setExtraInstructions(e.target.value)}
+              className="w-full"
+            />
             <Button 
+              onClick={handleGenerateModifications} 
               className="w-full" 
-              disabled={isGenerating || isUploading || isProcessing || selectedSections.length === 0}
+              disabled={isGenerating || isUploading || isProcessing || isExporting}
             >
-              Modify
+              {isProcessing ? 'Generating...' : 'Generate Modifications'}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 max-w-xs">
-            <div className="space-y-4">
-              <h4 className="font-medium">Modify Selected Sections</h4>
-              <Input
-                as="textarea"
-                rows={4}
-                placeholder="Enter additional instructions..."
-                value={extraInstructions}
-                onChange={(e) => setExtraInstructions(e.target.value)}
-                className="w-full"
-              />
-              <Button 
-                onClick={handleGenerateModifications} 
-                className="w-full" 
-                disabled={isGenerating || isUploading || isProcessing}
-              >
-                {isGenerating ? 'Generating...' : 'Generate Modifications'}
-              </Button>
-            </div>
-          </PopoverContent>
-        </Popover>
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Export to Markdown Button */}
+      <Button 
+        onClick={handleExport} 
+        className="w-full" 
+        disabled={isExporting || isGenerating || isUploading || isProcessing}
+      >
+        {isExporting ? 'Exporting...' : 'Export'}
+      </Button>
       </div>
     </div>
 
@@ -546,8 +587,13 @@ export default function Home() {
                     } ${isHighlighted ? 'animate-pulse bg-green-50 border-green-200' : ''}`}
                     onClick={() => toggleSection(section)}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-lg font-semibold text-gray-800">{currentResult.question}</h3>
+                    <div className="bg-white p-3 rounded-md border">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {currentResult.answer}
+                      </ReactMarkdown>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <p className="text-sm text-gray-500">Iteration: {currentIteration}</p>
                       <div className="flex items-center space-x-2">
                         <Button
                           onClick={(e) => {
@@ -584,13 +630,6 @@ export default function Home() {
                         </Button>
                       </div>
                     </div>
-                    <div className="bg-white p-3 rounded-md border mt-2">
-                      {/* Render markdown content here */}
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {currentResult.answer}
-                      </ReactMarkdown>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2">Iteration: {currentIteration}</p>
                   </Card>
                 )
               })}

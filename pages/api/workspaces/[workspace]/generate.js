@@ -125,7 +125,7 @@ export default async function handler(req, res) {
       Return your response in nicely formatted Markdown, using headers, spacing and dot points when sensible. 
       Always use - for dot points and not other characters like •, numbers (1 2 3) or letters (a b c) unless I ask so .
       Only use information from the context. 
-      If you are missing information then add a placeholder to **<<<get more information from client>>>** in bold.
+      If you are missing information then add a placeholder to **[may need more information from client]** in bold.
       Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
       {extra_rules}
 
