@@ -117,20 +117,23 @@ export default async function handler(req, res) {
     const retriever = vectorStore.asRetriever();
 
     // Define Custom Prompt Template
-    const customTemplate = `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
+    const customTemplate = 
+    `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
     
-QUESTION: {input}
-RULES: 
-Only use information from the context. 
-If you are missing information or are unsure, insert a placeholder to [clarify with client]
-Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
-{extra_rules}
+      QUESTION: {input}
+      RULES: 
+      Return your response in nicely formatted Markdown, using headers, spacing and dot points when sensible. 
+      Always use - for dot points and not other characters like •, numbers (1 2 3) or letters (a b c) unless I ask so .
+      Only use information from the context. 
+      If you are missing information then add a placeholder to **<<<get more information from client>>>** in bold.
+      Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
+      {extra_rules}
 
-CONTEXT: {context}
+      CONTEXT: {context}
 
-EXAMPLES
-{examples}
-`;
+      EXAMPLES
+      {examples}
+      `;
 
     // Create Combine Documents Chain
     const combineDocsChain = await createStuffDocumentsChain({
@@ -143,7 +146,7 @@ EXAMPLES
     const chain = await createRetrievalChain({
       retriever: retriever,
       combineDocsChain: combineDocsChain,
-      maxDocuments: 5, // Adjust based on your needs
+      maxDocuments: 5, 
     });
 
     // Function to run RAG Chain
@@ -153,6 +156,7 @@ EXAMPLES
         extra_rules: extra_rules,
         examples: examples,
       });
+      console.log(response.answer)
       return response.text || response.answer || 'No answer provided.';
     };
 
@@ -185,21 +189,6 @@ EXAMPLES
     const allResults = [...existingResults, ...newResults];
     fs.writeFileSync(path.join(tempDir, 'results.json'), JSON.stringify(allResults, null, 2));
     console.log(`Saved results to ${path.join(tempDir, 'results.json')}`);
-
-    // Save Vector Store
-    // await vectorStore.save(tempDir);
-    // console.log(`Vector store saved to "${tempDir}" for workspace "${workspace}".`);
-
-    // // Upload updated vector store files back to Blob Storage
-    // const filesToUpload = ['hnswlib.index', 'docstore.json', 'args.json'];
-    // for (const file of filesToUpload) {
-    //   const filePath = path.join(tempDir, file);
-    //   if (fs.existsSync(filePath)) {
-    //     const fileBuffer = fs.readFileSync(filePath);
-    //     await uploadFile(workspace, 'vector_store', file, fileBuffer);
-    //     console.log(`File "${file}" uploaded successfully.`);
-    //   }
-    // }
 
     // Upload results.json to 'results' directory
     const resultsPath = path.join(tempDir, 'results.json');

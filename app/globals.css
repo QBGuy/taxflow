@@ -86,3 +86,63 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer base {
+  /* Markdown headers */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+    margin-top: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Apply styles for all h1 elements */
+  h1 {
+    @apply font-bold text-lg;
+    margin-bottom: 1rem; /* Always add bottom margin for consistency */
+  }
+
+  /* Apply top margin to all h1 elements except the first one */
+  h1:not(:first-of-type) {
+    margin-top: 2rem; /* Add space before all h1s except the first one */
+  }
+
+  h2 {
+    @apply font-bold text-base; /* Same size as base text */
+  }
+
+  h3 {
+    @apply font-semibold text-sm; /* Slightly smaller */
+  } 
+
+  /* Markdown lists */
+  ul, ol {
+    @apply ml-6;
+    margin-bottom: 1rem;
+  }
+
+  li {
+    margin-bottom: 0.5rem;
+  }
+
+  ol {
+    list-style-type: decimal;
+  }
+
+  ul {
+    list-style-type: disc;
+  }
+
+  /* Bold and italic text */
+  strong {
+    @apply font-bold;
+  }
+
+  em {
+    @apply italic;
+  }
+
+  /* Additional spacing and padding for markdown content */
+  p {
+    margin-bottom: 1rem;
+  }
+}

@@ -113,24 +113,25 @@ export default async function handler(req, res) {
     const retriever = vectorStore.asRetriever();
 
     // Define Custom Prompt Template with appended extra instructions
-    const customTemplate = `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
+    const customTemplate = 
+    `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
     
-QUESTION: {input}
-RULES: 
-Only use information from the context. 
-If you are missing information or are unsure, insert a placeholder to [clarify with client]
-Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
-{extra_rules}
+    QUESTION: {input}
+    RULES: 
+    Only use information from the context. 
+    If you are missing information or are unsure, insert a placeholder to [clarify with client] or [get more information from client]
+    Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
+    {extra_rules}
 
-CONTEXT: {context}
+    CONTEXT: {context}
 
-EXAMPLES
-{examples}
+    EXAMPLES
+    {examples}
 
-Modify BASE_RESPONSE with the following additional INSTRUCTIONS 
-INSTRUCTIONS: {extra_instructions}
-BASE_RESPONSE: {base_response}
-`;
+    Modify BASE_RESPONSE with the following additional INSTRUCTIONS 
+    INSTRUCTIONS: {extra_instructions}
+    BASE_RESPONSE: {base_response}
+    `;
 
     // Create Combine Documents Chain
     const combineDocsChain = await createStuffDocumentsChain({

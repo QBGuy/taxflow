@@ -551,8 +551,8 @@ export default function Home() {
                       <div className="flex items-center space-x-2">
                         <Button
                           onClick={(e) => {
-                            e.stopPropagation()
-                            handleIterationChange(section, -1)
+                            e.stopPropagation();
+                            handleIterationChange(section, -1);
                           }}
                           disabled={currentIteration === 1 || isGenerating || isUploading || isProcessing}
                           size="sm"
@@ -562,8 +562,8 @@ export default function Home() {
                         </Button>
                         <Button
                           onClick={(e) => {
-                            e.stopPropagation()
-                            handleIterationChange(section, 1)
+                            e.stopPropagation();
+                            handleIterationChange(section, 1);
                           }}
                           disabled={currentIteration === iterations.length || isGenerating || isUploading || isProcessing}
                           size="sm"
@@ -575,8 +575,8 @@ export default function Home() {
                           size="sm" 
                           variant="ghost" 
                           onClick={(e) => {
-                            e.stopPropagation()
-                            handleCopy(currentResult.answer)
+                            e.stopPropagation();
+                            handleCopy(currentResult.answer);
                           }}
                           disabled={isGenerating || isUploading || isProcessing}
                         >

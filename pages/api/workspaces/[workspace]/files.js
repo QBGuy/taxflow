@@ -9,6 +9,8 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { PDFLoader } from '@langchain/community/document_loaders/fs/pdf';
+import { DocxLoader } from "@langchain/community/document_loaders/fs/docx";
+import { TextLoader } from "langchain/document_loaders/fs/text";
 
 console.log('------RUNNING: files.js')
 
@@ -83,6 +85,10 @@ export default async function handler(req, res) {
         let loader;
         if (ext === '.pdf') {
           loader = new PDFLoader(tempFilePath);
+        } else if (ext === '.docx' || ext === '.doc') {
+          loader = new DocxLoader(tempFilePath);
+        } else if (ext === '.txt') {
+          loader = new TextLoader(tempFilePath);
         } else {
           console.log(`Unsupported file type for processing: ${file}`);
           skippedFiles.push(file);
