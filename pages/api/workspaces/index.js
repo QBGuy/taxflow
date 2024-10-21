@@ -7,9 +7,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 
-console.log('------RUNNING: index.js.js')
-
-// No need to disable bodyParser since we're handling JSON
+console.log('------RUNNING: index.js')
 
 export default async function handler(req, res) {
   const { method } = req;

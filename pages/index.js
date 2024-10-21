@@ -563,7 +563,7 @@ export default function Home() {
     {/* Main Content */}
     <div className="flex-1 overflow-hidden flex flex-col">
       <header className="bg-white shadow-sm p-4">
-        <h1 className="text-2xl font-semibold text-gray-800">Responses</h1>
+        <h1 className="text-2xl font-semibold text-gray-800">Product Description</h1>
       </header>
       <main className="flex-1 overflow-y-auto p-6">
         {/* Generated Results */}

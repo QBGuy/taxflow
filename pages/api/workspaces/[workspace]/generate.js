@@ -104,8 +104,8 @@ export default async function handler(req, res) {
     // Initialize LLM
     const llm = new AzureChatOpenAI({
       model: "gpt-4o-mini",
-      temperature: 0,
-      maxTokens: undefined,
+      temperature: 0.3,
+      maxTokens: 5000,
       maxRetries: 2,
       azureOpenAIApiKey: process.env.AZURE_OPENAI_KEY,
       azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
@@ -124,9 +124,9 @@ export default async function handler(req, res) {
       RULES: 
       Return your response in nicely formatted Markdown, using headers, spacing and dot points when sensible. 
       Always use - for dot points and not other characters like •, numbers (1 2 3) or letters (a b c) unless I ask so .
-      Only use information from the context. 
-      If you are missing information then add a placeholder to **[may need more information from client]** in bold.
-      Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
+      Primarily use information from the CONTEXT, but feel free to extend beyond the information explicitly stated if you think there is a high likelihood of it being correct (e.g. if they describe a common procedure then you can elaborate based on your own knowledge). For each instance of extension write **[check with client]**
+      If you are explicitly missing information then add a placeholder to **[ask client for XXX]** in bold.
+      Use EXAMPLES to determine the structure and to guide the length of the response. However, feel free to elaborate more also. Longer is better.
       {extra_rules}
 
       CONTEXT: {context}
