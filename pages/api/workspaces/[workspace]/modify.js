@@ -114,23 +114,22 @@ export default async function handler(req, res) {
 
     // Define Custom Prompt Template with appended extra instructions
     const customTemplate = 
-    `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
+    `Your task is to modify BASE_RESPONSE to answer the following QUESTION using provided CONTEXT, RULES.
     
     QUESTION: {input}
     RULES: 
-    Only use information from the context. 
-    If you are missing information or are unsure, insert a placeholder to [clarify with client] or [get more information from client]
-    Use EXAMPLES to determine the structure and to guide the length of the response. If no examples are provided then answer in 3 sentences or less.
+    Return your response in nicely formatted Markdown, using headers, spacing and dot points when sensible. 
+    Always use - for dot points and not other characters like •, numbers (1 2 3) or letters (a b c) unless I ask so .
+    Primarily use information from the CONTEXT, but feel free to extend beyond the information explicitly stated if you think there is a high likelihood of it being correct (e.g. if they describe a common procedure then you can elaborate based on your own knowledge). For each instance of extension write **[check with client]**
+    If you are explicitly missing information then add a placeholder to **[ask client for XXX]** in bold.
     {extra_rules}
-
+    {extra_instructions}
+    Use EXAMPLES to get an idea of the desired structure.
+    
     CONTEXT: {context}
 
-    EXAMPLES
-    {examples}
-
-    Modify BASE_RESPONSE with the following additional INSTRUCTIONS 
-    INSTRUCTIONS: {extra_instructions}
-    BASE_RESPONSE: {base_response}
+    EXAMPLES: {examples}
+    
     `;
 
     // Create Combine Documents Chain
