@@ -124,15 +124,18 @@ export default async function handler(req, res) {
       RULES: 
       Return your response in nicely formatted Markdown, using headers, spacing and dot points when sensible. 
       Always use - for dot points and not other characters like •, numbers (1 2 3) or letters (a b c) unless I ask so .
+      
       Primarily use information from the CONTEXT, but feel free to extend beyond the information explicitly stated if you think there is a high likelihood of it being correct (e.g. if they describe a common procedure then you can elaborate based on your own knowledge). For each instance of extension write **[check with client]**
-      If you are explicitly missing information then add a placeholder to **[ask client for XXX]** in bold.
+      If you feel like you're missing important information then add a placeholder to **[ask client for XXX]** in bold.
       Use EXAMPLES to determine the structure and to guide the length of the response. However, feel free to elaborate more also. Longer is better.
+      However, do NOT use any of the content from EXAMPLE_OUTPUT_1 or EXAMPLE_OUTPUT_2.
       {extra_rules}
 
       CONTEXT: {context}
-
+      
       EXAMPLES
       {examples}
+  
       `;
 
     // Create Combine Documents Chain
