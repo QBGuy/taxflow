@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify'
 import { useDropzone } from 'react-dropzone'
 import axios from 'axios'
-import { FileIcon, FolderIcon, PlusIcon, UploadIcon, ChevronLeftIcon, ChevronRightIcon, CopyIcon } from 'lucide-react'
+import { FileIcon, FolderIcon, PlusIcon, UploadIcon, ChevronLeftIcon, ChevronRightIcon, CopyIcon, MenuIcon } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -34,6 +34,7 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [highlightedSections, setHighlightedSections] = useState([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true); // State for left pane visibility
   const eventSourceRef = useRef(null); // Ref to store EventSource instance
 
   useEffect(() => {
@@ -367,10 +368,10 @@ export default function Home() {
   }, []);
 
   const handleIterationChange = (section, direction) => {
-    setCurrentIterations(prev => {
+    setCurrentIterations((prev) => {
       const current = prev[section] || 1;
       const iterations = allResults[section] || [];
-      const iterationNumbers = iterations.map(r => r.iteration_number);
+      const iterationNumbers = iterations.map((r) => r.iteration_number);
       const max = Math.max(...iterationNumbers, 1); // Ensure at least 1
 
       let newIteration = current + direction;
@@ -435,7 +436,9 @@ export default function Home() {
 
       const updatedIterations = { ...currentIterations };
       Object.keys(modifiedResultsBySection).forEach((section) => {
-        const iterationNumbers = modifiedResultsBySection[section].map(r => r.iteration_number);
+        const iterationNumbers = modifiedResultsBySection[section].map(
+          (r) => r.iteration_number
+        );
         const latestIteration = Math.max(...iterationNumbers, 1);
         updatedIterations[section] = latestIteration;
       });
@@ -525,163 +528,200 @@ export default function Home() {
     }
   };
 
+  // Toggle Left Pane Function
+  const toggleLeftPane = () => {
+    setIsLeftPaneOpen(!isLeftPaneOpen);
+  };
+
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Side Pane */}
-      <div className="w-64 bg-white shadow-md flex flex-col">
-        <div className="p-4 border-b">
-          <img src="/logo.svg" alt="Logo" className="h-8 w-auto" />
-        </div>
-        <div className="p-4 flex-1 overflow-y-auto">
-          <Select
-            onValueChange={handleWorkspaceSelect}
-            disabled={isGenerating || isUploading || isProcessing}
-          >
-            <SelectTrigger className="w-full mb-4">
-              {selectedWorkspace ? (
-                <span>{selectedWorkspace}</span>
-              ) : (
-                <span>Select a Workspace</span>
-              )}
-            </SelectTrigger>
-            <SelectContent>
-              {isLoadingWorkspaces ? (
-                <SelectItem disabled>Loading...</SelectItem>
-              ) : workspaces.length === 0 ? (
-                <SelectItem disabled>No workspaces found</SelectItem>
-              ) : (
-                workspaces.map((workspace, index) => (
-                  <SelectItem key={index} value={workspace}>
-                    {workspace}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            className="w-full mb-4"
-            onClick={() => setIsDialogOpen(true)}
-            disabled={isGenerating || isUploading || isProcessing}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" /> New Workspace
-          </Button>
-          <div className="mb-4">
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors ${
-                isDragActive
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-300'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <UploadIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-600">
-                Drag & drop files here, or click to select files
-              </p>
+      {/* Left Pane */}
+      <div
+        className={`bg-white shadow-md flex flex-col transition-all duration-300 ${
+          isLeftPaneOpen ? 'w-64' : 'w-16'
+        }`}
+      >
+        <div className="p-4 border-b flex items-center justify-between h-16">
+          {isLeftPaneOpen && (
+            <div className="flex items-center">
+              <img src="/logo.svg" alt="Logo" className="h-8" />
             </div>
-            {isUploading && <Progress className="mt-4" />}
-            {uploadedFiles.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center text-sm text-gray-600"
-                  >
-                    {getFileTypeIcon(file)}
-                    <span className="ml-2">{file}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* Generate Button */}
+          )}
           <Button
-            onClick={handleGenerate}
-            className="w-full mb-2"
-            disabled={
-              isGenerating ||
-              isUploading ||
-              isProcessing ||
-              uploadedFiles.length === 0 ||
-              isExporting
-            }
+            variant="ghost"
+            size="icon"
+            onClick={toggleLeftPane}
+            className="focus:outline-none"
           >
-            {isGenerating ? 'Generating...' : 'Generate'}
+            <MenuIcon className="h-6 w-6" />
           </Button>
-
-          {/* Modify Button with Popover */}
-          <Popover open={isModifyPopoverOpen} onOpenChange={setIsModifyPopoverOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                className="w-full mb-2"
-                disabled={
-                  isGenerating ||
-                  isUploading ||
-                  isProcessing ||
-                  selectedSections.length === 0 ||
-                  isExporting
-                }
+        </div>
+        {isLeftPaneOpen && (
+          <div className="p-4 flex-1 overflow-y-auto">
+            <Select
+              onValueChange={handleWorkspaceSelect}
+              disabled={isGenerating || isUploading || isProcessing}
+            >
+              <SelectTrigger className="w-full mb-4">
+                {selectedWorkspace ? (
+                  <span>{selectedWorkspace}</span>
+                ) : (
+                  <span>Select a Workspace</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {isLoadingWorkspaces ? (
+                  <SelectItem disabled>Loading...</SelectItem>
+                ) : workspaces.length === 0 ? (
+                  <SelectItem disabled>No workspaces found</SelectItem>
+                ) : (
+                  workspaces.map((workspace, index) => (
+                    <SelectItem key={index} value={workspace}>
+                      {workspace}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              className="w-full mb-4"
+              onClick={() => setIsDialogOpen(true)}
+              disabled={isGenerating || isUploading || isProcessing}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" /> New Workspace
+            </Button>
+            <div className="mb-4">
+              <div
+                {...getRootProps()}
+                className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors ${
+                  isDragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                }`}
               >
-                Modify
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 max-w-xs p-4">
-              <div className="space-y-4">
-                <h4 className="font-medium">Modify Selected Sections</h4>
-                <Input
-                  as="textarea"
-                  rows={4}
-                  placeholder="Enter additional instructions..."
-                  value={extraInstructions}
-                  onChange={(e) => setExtraInstructions(e.target.value)}
-                  className="w-full"
-                />
+                <input {...getInputProps()} />
+                <UploadIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600">
+                  Drag & drop files here, or click to select files
+                </p>
+              </div>
+              {isUploading && <Progress className="mt-4" />}
+              {uploadedFiles.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {uploadedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center text-sm text-gray-600"
+                    >
+                      {getFileTypeIcon(file)}
+                      <span className="ml-2">{file}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Button
+              onClick={handleGenerate}
+              className="w-full mb-2"
+              disabled={
+                isGenerating ||
+                isUploading ||
+                isProcessing ||
+                uploadedFiles.length === 0 ||
+                isExporting
+              }
+            >
+              {isGenerating ? 'Generating...' : 'Generate'}
+            </Button>
+
+            <Popover
+              open={isModifyPopoverOpen}
+              onOpenChange={setIsModifyPopoverOpen}
+            >
+              <PopoverTrigger asChild>
                 <Button
-                  onClick={handleGenerateModifications}
-                  className="w-full"
+                  className="w-full mb-2"
                   disabled={
                     isGenerating ||
                     isUploading ||
                     isProcessing ||
+                    selectedSections.length === 0 ||
                     isExporting
                   }
                 >
-                  {isGenerating ? 'Generating...' : 'Generate Modifications'}
+                  Modify
                 </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 max-w-xs p-4">
+                <div className="space-y-4">
+                  <h4 className="font-medium">Modify Selected Sections</h4>
+                  <Input
+                    as="textarea"
+                    rows={4}
+                    placeholder="Enter additional instructions..."
+                    value={extraInstructions}
+                    onChange={(e) => setExtraInstructions(e.target.value)}
+                    className="w-full"
+                  />
+                  <Button
+                    onClick={handleGenerateModifications}
+                    className="w-full"
+                    disabled={
+                      isGenerating || isUploading || isProcessing || isExporting
+                    }
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate Modifications'}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
 
-          {/* Export to Markdown Button */}
-          <Button
-            onClick={handleExport}
-            className="w-full"
-            disabled={
-              isExporting ||
-              isGenerating ||
-              isUploading ||
-              isProcessing
-            }
-          >
-            {isExporting ? 'Exporting...' : 'Export'}
-          </Button>
-        </div>
+            <Button
+              onClick={handleExport}
+              className="w-full mb-2"
+              disabled={
+                isExporting ||
+                isGenerating ||
+                isUploading ||
+                isProcessing ||
+                Object.keys(allResults).length === 0
+              }
+              variant="default"
+              style={{
+                opacity:
+                  isExporting ||
+                  isGenerating ||
+                  isUploading ||
+                  isProcessing ||
+                  Object.keys(allResults).length === 0
+                    ? 0.5
+                    : 1,
+                pointerEvents:
+                  isExporting ||
+                  isGenerating ||
+                  isUploading ||
+                  isProcessing ||
+                  Object.keys(allResults).length === 0
+                    ? 'none'
+                    : 'auto',
+              }}
+            >
+              {isExporting ? 'Exporting...' : 'Export'}
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        <header className="bg-white shadow-sm p-4">
+        <header className="bg-white shadow-sm p-4 flex items-center h-16">
           <h1 className="text-2xl font-semibold text-gray-800">
-            Product Description
+            Easy PD
           </h1>
         </header>
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Generated Results */}
           <section>
             {Object.keys(allResults).length === 0 ? (
-              <p className="text-gray-500">No responses generated yet.</p>
+              <p className="text-gray-500"></p>
             ) : (
               <div className="space-y-4">
                 {Object.keys(allResults).map((section) => {
@@ -697,10 +737,12 @@ export default function Home() {
                     <Card
                       key={section}
                       className={`p-4 hover:shadow-md transition-shadow cursor-pointer ${
-                        isSelected
-                          ? 'bg-gray-200 border-gray-300'
+                        isSelected ? 'bg-gray-200 border-gray-300' : ''
+                      } ${
+                        isHighlighted
+                          ? 'animate-pulse bg-green-50 border-green-200'
                           : ''
-                      } ${isHighlighted ? 'animate-pulse bg-green-50 border-green-200' : ''}`}
+                      }`}
                       onClick={() => toggleSection(section)}
                     >
                       <div className="bg-white p-3 rounded-md border">
@@ -753,9 +795,7 @@ export default function Home() {
                               handleCopy(currentResult?.answer || '');
                             }}
                             disabled={
-                              isGenerating ||
-                              isUploading ||
-                              isProcessing
+                              isGenerating || isUploading || isProcessing
                             }
                           >
                             <CopyIcon className="h-4 w-4" />
