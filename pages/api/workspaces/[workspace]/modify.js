@@ -11,8 +11,11 @@ import { downloadFile, uploadFile } from '@lib/azureBlob';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+
 console.log('Loaded prompts:', prompts);
-console.log('------RUNNING: modify.js')
+console.log('------RUNNING: modify.js');
+
+export const maxDuration = 60; // This function can run for a maximum of 60 seconds
 export default async function handler(req, res) {
   const {
     query: { workspace },

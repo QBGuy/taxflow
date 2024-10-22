@@ -15,25 +15,52 @@ import os from 'os';
 console.log('Loaded prompts:', prompts);
 console.log('------RUNNING: generate.js')
 
-export const maxDuration = 60;
+export const maxDuration = 60; // This function can run for a maximum of 60 seconds
+
+// Disable body parsing for streaming
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
 export default async function handler(req, res) {
   const {
     query: { workspace },
     method,
   } = req;
 
-  if (method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
+  if (method !== 'GET') {
+    res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Method ${method} Not Allowed`);
   }
+
+  // Set headers for SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders(); // Flush the headers to establish SSE with client
+
+  // Helper function to send SSE
+  const sendSSE = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    // Attempt to flush the data
+    if (res.flush) {
+      res.flush();
+    } else if (res.socket && res.socket.write) {
+      res.socket.write('');
+    }
+  };
 
   try {
     // Initialize Embeddings
     const embeddings = new AzureOpenAIEmbeddings({
       azureOpenAIApiKey: process.env.AZURE_OPENAI_KEY,
       azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-      azureOpenAIApiEmbeddingsDeploymentName: process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT_NAME,
-      azureOpenAIApiVersion: process.env.AZURE_OPENAI_VERSION || "2024-05-01-preview",
+      azureOpenAIApiEmbeddingsDeploymentName:
+        process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT_NAME,
+      azureOpenAIApiVersion:
+        process.env.AZURE_OPENAI_VERSION || '2024-05-01-preview',
     });
 
     // Create temporary directory
@@ -47,12 +74,22 @@ export default async function handler(req, res) {
     for (const file of filesToDownload) {
       try {
         if (file === 'hnswlib.index') {
-          const fileContent = await downloadFile(workspace, 'vector_store', file, true); // asBuffer=true
+          const fileContent = await downloadFile(
+            workspace,
+            'vector_store',
+            file,
+            true
+          ); // asBuffer=true
           const tempFilePath = path.join(tempDir, file);
           fs.writeFileSync(tempFilePath, fileContent);
           console.log(`File "${file}" downloaded to "${tempFilePath}".`);
         } else {
-          const fileContent = await downloadFile(workspace, 'vector_store', file, false); // asBuffer=false
+          const fileContent = await downloadFile(
+            workspace,
+            'vector_store',
+            file,
+            false
+          ); // asBuffer=false
           const tempFilePath = path.join(tempDir, file);
           fs.writeFileSync(tempFilePath, fileContent);
           console.log(`File "${file}" downloaded to "${tempFilePath}".`);
@@ -70,17 +107,28 @@ export default async function handler(req, res) {
     let existingResults = [];
     const resultsFile = 'results.json';
     try {
-      const resultsContent = await downloadFile(workspace, 'results', resultsFile, false);
+      const resultsContent = await downloadFile(
+        workspace,
+        'results',
+        resultsFile,
+        false
+      );
       existingResults = JSON.parse(resultsContent);
       console.log(`Loaded existing results for workspace ${workspace}.`);
     } catch (error) {
       if (error.code === 'BlobNotFound' || error.statusCode === 404) {
-        console.log("No existing results found. Starting fresh.");
+        console.log('No existing results found. Starting fresh.');
       } else {
         console.error(`Error downloading or parsing "${resultsFile}":`, error);
         throw error;
       }
     }
+
+    // Initialize Section-wise Counters
+    const sectionCounters = prompts.reduce((acc, prompt) => {
+      acc[prompt.section] = existingResults.filter(r => r.section === prompt.section).length;
+      return acc;
+    }, {});
 
     // Load Vector Store
     let vectorStore;
@@ -91,10 +139,12 @@ export default async function handler(req, res) {
     } else {
       // Initialize new vector store if not exists
       console.log(`Initializing new vector store for workspace: ${workspace}`);
-      const initialDocs = [{
-        pageContent: workspace,
-        metadata: {},
-      }];
+      const initialDocs = [
+        {
+          pageContent: workspace,
+          metadata: {},
+        },
+      ];
       const textSplitter = new RecursiveCharacterTextSplitter({
         chunkSize: 1000,
         chunkOverlap: 200,
@@ -105,22 +155,23 @@ export default async function handler(req, res) {
 
     // Initialize LLM
     const llm = new AzureChatOpenAI({
-      model: "gpt-4o-mini",
+      model: 'gpt-4o-mini',
       temperature: 0.3,
       maxTokens: 5000,
       maxRetries: 2,
       azureOpenAIApiKey: process.env.AZURE_OPENAI_KEY,
       azureOpenAIApiInstanceName: process.env.AZURE_OPENAI_INSTANCE_NAME,
-      azureOpenAIApiDeploymentName: process.env.AZURE_OPENAI_CHAT_DEPLOYMENT_NAME,
-      azureOpenAIApiVersion: process.env.AZURE_OPENAI_VERSION || "2024-05-01-preview",
+      azureOpenAIApiDeploymentName:
+        process.env.AZURE_OPENAI_CHAT_DEPLOYMENT_NAME,
+      azureOpenAIApiVersion:
+        process.env.AZURE_OPENAI_VERSION || '2024-05-01-preview',
     });
 
     // Create Retriever
     const retriever = vectorStore.asRetriever();
 
     // Define Custom Prompt Template
-    const customTemplate = 
-    `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
+    const customTemplate = `Your task is to answer the following QUESTION using provided CONTEXT and RULES.  
     
       QUESTION: {input}
       RULES: 
@@ -151,7 +202,7 @@ export default async function handler(req, res) {
     const chain = await createRetrievalChain({
       retriever: retriever,
       combineDocsChain: combineDocsChain,
-      maxDocuments: 5, 
+      maxDocuments: 5,
     });
 
     // Function to run RAG Chain
@@ -161,38 +212,53 @@ export default async function handler(req, res) {
         extra_rules: extra_rules,
         examples: examples,
       });
-      console.log(response.answer)
+      console.log(response.answer);
       return response.text || response.answer || 'No answer provided.';
     };
 
-    // Process Prompts
+    // Process Prompts with SSE
     const newResults = [];
     for (const prompt of prompts) {
       const { section, question, extra_rules, examples } = prompt;
-      const iteration_number = existingResults.filter(r => r.section === section).length + 1;
+      sectionCounters[section] += 1;
+      const iteration_number = sectionCounters[section];
+
       try {
         const answer = await runRagChain(chain, question, extra_rules, examples);
-        newResults.push({
+        const result = {
           section,
           iteration_number,
           question,
-          answer
-        });
+          answer,
+        };
+        newResults.push(result);
+
+        // Send the result to the client via SSE
+        sendSSE(result);
+        console.log(`SSE sent for section: ${section}`);
+
         console.log(`Processed section: ${section}`);
       } catch (error) {
         console.error(`Error processing section ${section}:`, error);
-        newResults.push({
+        const errorResult = {
           section,
           iteration_number,
           question,
-          answer: `Error: ${error.message}`
-        });
+          answer: `Error: ${error.message}`,
+        };
+        newResults.push(errorResult);
+
+        // Send the error to the client via SSE
+        sendSSE(errorResult);
       }
     }
 
     // Save Results
     const allResults = [...existingResults, ...newResults];
-    fs.writeFileSync(path.join(tempDir, 'results.json'), JSON.stringify(allResults, null, 2));
+    fs.writeFileSync(
+      path.join(tempDir, 'results.json'),
+      JSON.stringify(allResults, null, 2)
+    );
     console.log(`Saved results to ${path.join(tempDir, 'results.json')}`);
 
     // Upload results.json to 'results' directory
@@ -206,9 +272,15 @@ export default async function handler(req, res) {
     // Clean up temporary directory
     fs.rmSync(tempDir, { recursive: true, force: true });
 
-    res.status(200).json({ results: newResults });
+    // Indicate completion to the client
+    sendSSE({ done: true });
+    console.log('SSE sent: done');
+
+    // Close the SSE connection
+    res.end();
   } catch (error) {
     console.error('Error generating responses:', error);
-    res.status(500).json({ message: 'Error generating responses.' });
+    sendSSE({ error: 'Error generating responses.' });
+    res.end();
   }
 }
