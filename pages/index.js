@@ -544,7 +544,7 @@ export default function Home() {
         <div className="p-4 border-b flex items-center justify-between h-16">
           {isLeftPaneOpen && (
             <div className="flex items-center">
-              <img src="/logo.svg" alt="Logo" className="h-8" />
+              <img src="/easypd-logo.svg" alt="Logo" className="h-8" />
             </div>
           )}
           <Button
